@@ -1,0 +1,52 @@
+{
+    "variables": {
+        "source_path": "",
+        "source_ami": "",
+        "version": "0",
+        "distro": "pcfdev",
+        "eula_url": ""
+    },
+    "builders": [
+        {
+            "type": "virtualbox-ovf",
+            "source_path":"{{user `source_path`}}",
+            "ssh_username":"vcap",
+            "ssh_password":"vcap",
+            "shutdown_command":"echo 'vcap' | sudo -S shutdown -P now",
+            "format": "ova"
+        },
+        {
+            "type": "amazon-ebs",
+            "region": "us-east-1",
+            "source_ami": "{{user `source_ami`}}",
+            "instance_type": "m4.large",
+            "ami_name": "{{user `distro`}}-v{{user `version`}}",
+            "ami_description": "{{user `eula_url`}}",
+            "ssh_username": "ubuntu",
+            "ssh_timeout": "20m",
+            "tags": {"Name": "v{{user `version`}}", "License":"{{user `eula_url`}}"}
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "file",
+            "source": "assets/scripts",
+            "destination": "/tmp"
+        },
+        {
+            "type": "shell",
+            "execute_command": "{{ .Vars }} sudo -E -S sh '{{ .Path }}'",
+            "inline": [
+                "chmod +x /tmp/scripts/*",
+                "mv /tmp/scripts/* /var/pcfdev/"
+            ]
+        }
+    ],
+    "post-processors": [[
+        {
+            "type": "shell-local",
+            "inline": ["echo 'only here so we have input artifacts to keep'"],
+            "keep_input_artifact": true
+        }
+    ]]
+}
