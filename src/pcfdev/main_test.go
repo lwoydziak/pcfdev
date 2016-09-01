@@ -55,6 +55,36 @@ var _ = Describe("PCF Dev provision", func() {
 		Expect(session).To(gbytes.Say("local.pcfdev.io"))
 	})
 
+	FContext("when provisioning takes too long", func() {
+		var failingBinaryPath string
+
+		BeforeEach(func() {
+			tempDir, err := ioutil.TempDir("", "")
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(
+				ioutil.WriteFile(
+					filepath.Join(tempDir, "provision_script"),
+					[]byte("#!/bin/bash\nsleep 10"),
+					0755),
+			).To(Succeed())
+
+			failingBinaryPath, err = gexec.Build(
+				"pcfdev",
+				"-ldflags",
+				"-X main.provisionScriptPath="+filepath.Join(tempDir, "provision_script")+
+					" -X main.timeoutDuration=1s",
+			)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("exit with an exit status of 1 and tell why it is exiting...", func() {
+			session, _ := gexec.Start(exec.Command(failingBinaryPath), GinkgoWriter, GinkgoWriter)
+			Expect(session).To(gbytes.Say("Error: timeout error."))
+			Eventually(session).Should(gexec.Exit(1))
+		})
+	})
+
 	Context("when provisioning fails", func() {
 		var failingBinaryPath string
 
